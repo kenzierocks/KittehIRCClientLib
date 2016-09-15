@@ -331,11 +331,11 @@ final class NettyManager {
                 return;
             }
             this.oneConnection = true;
-            if (timeoutFuture.isCancelled() || timeoutFuture.isDone()) {
+            if (this.timeoutFuture.isCancelled() || this.timeoutFuture.isDone()) {
                 // channel is no longer available
                 return;
             }
-            timeoutFuture.cancel(true);
+            this.timeoutFuture.cancel(true);
             this.exchange.setNettyChannel(channel);
             dccConnections.computeIfAbsent(this.client, c -> new ArrayList<>()).add(channel);
 
