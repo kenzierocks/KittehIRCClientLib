@@ -267,6 +267,11 @@ class FakeClient extends InternalClient {
     }
 
     @Override
+    public void beginDCCChat(User target) {
+
+    }
+
+    @Override
     public void sendCTCPMessage(@Nonnull String target, @Nonnull String message) {
 
     }

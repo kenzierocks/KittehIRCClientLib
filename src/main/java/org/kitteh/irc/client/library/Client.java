@@ -23,6 +23,17 @@
  */
 package org.kitteh.irc.client.library;
 
+import java.io.File;
+import java.lang.reflect.Constructor;
+import java.net.InetAddress;
+import java.util.Optional;
+import java.util.Set;
+import java.util.function.Consumer;
+
+import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
+import javax.net.ssl.TrustManagerFactory;
+
 import org.kitteh.irc.client.library.element.Channel;
 import org.kitteh.irc.client.library.element.MessageReceiver;
 import org.kitteh.irc.client.library.element.User;
@@ -39,16 +50,6 @@ import org.kitteh.irc.client.library.feature.ServerInfo;
 import org.kitteh.irc.client.library.util.Cutter;
 import org.kitteh.irc.client.library.util.Pair;
 import org.kitteh.irc.client.library.util.Sanity;
-
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
-import javax.net.ssl.TrustManagerFactory;
-import java.io.File;
-import java.lang.reflect.Constructor;
-import java.net.InetAddress;
-import java.util.Optional;
-import java.util.Set;
-import java.util.function.Consumer;
 
 /**
  * An individual IRC connection, see {@link #builder()} to create one.
@@ -829,4 +830,7 @@ public interface Client {
      * @param reason quit message to send
      */
     void shutdown(@Nonnull String reason);
+
+    @Nonnull
+    void beginDCCChat(@Nonnull User target);
 }

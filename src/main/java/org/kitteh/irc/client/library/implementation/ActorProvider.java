@@ -24,25 +24,8 @@
 package org.kitteh.irc.client.library.implementation;
 
 
-import org.kitteh.irc.client.library.Client;
-import org.kitteh.irc.client.library.command.ChannelModeCommand;
-import org.kitteh.irc.client.library.element.Actor;
-import org.kitteh.irc.client.library.element.Channel;
-import org.kitteh.irc.client.library.element.ISupportParameter;
-import org.kitteh.irc.client.library.element.Server;
-import org.kitteh.irc.client.library.element.Staleable;
-import org.kitteh.irc.client.library.element.User;
-import org.kitteh.irc.client.library.element.mode.ChannelMode;
-import org.kitteh.irc.client.library.element.mode.ChannelUserMode;
-import org.kitteh.irc.client.library.element.mode.ModeInfo;
-import org.kitteh.irc.client.library.element.mode.ModeStatus;
-import org.kitteh.irc.client.library.element.mode.ModeStatusList;
-import org.kitteh.irc.client.library.util.CIKeyMap;
-import org.kitteh.irc.client.library.util.Sanity;
-import org.kitteh.irc.client.library.util.ToStringer;
-
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import java.net.InetSocketAddress;
+import java.net.SocketAddress;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -63,6 +46,29 @@ import java.util.function.Supplier;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
+
+import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
+
+import org.kitteh.irc.client.library.Client;
+import org.kitteh.irc.client.library.command.ChannelModeCommand;
+import org.kitteh.irc.client.library.element.Actor;
+import org.kitteh.irc.client.library.element.Channel;
+import org.kitteh.irc.client.library.element.DCCChat;
+import org.kitteh.irc.client.library.element.DCCExchange;
+import org.kitteh.irc.client.library.element.ISupportParameter;
+import org.kitteh.irc.client.library.element.Server;
+import org.kitteh.irc.client.library.element.Staleable;
+import org.kitteh.irc.client.library.element.User;
+import org.kitteh.irc.client.library.element.mode.ChannelMode;
+import org.kitteh.irc.client.library.element.mode.ChannelUserMode;
+import org.kitteh.irc.client.library.element.mode.ModeInfo;
+import org.kitteh.irc.client.library.element.mode.ModeStatus;
+import org.kitteh.irc.client.library.element.mode.ModeStatusList;
+import org.kitteh.irc.client.library.event.user.DCCMessageEvent;
+import org.kitteh.irc.client.library.util.CIKeyMap;
+import org.kitteh.irc.client.library.util.Sanity;
+import org.kitteh.irc.client.library.util.ToStringer;
 
 class ActorProvider implements Resettable {
     class IRCActor {
@@ -674,6 +680,145 @@ class ActorProvider implements Resettable {
         }
     }
 
+    abstract class IRCDCCExchange extends IRCActor {
+
+        private final String type;
+        private final String name;
+        private io.netty.channel.Channel nettyChannel;
+        private SocketAddress local;
+        private SocketAddress remote;
+        private boolean connected;
+        
+        private IRCDCCExchange(@Nonnull String type, @Nonnull String name) {
+            super(type + '\0' + name);
+            this.type = type;
+            this.name = name;
+            NettyManager.connectDCC(ActorProvider.this.client, this);
+        }
+        
+        abstract void sendCTCP();
+
+        abstract void onMessage(String msg);
+        
+        final void onSocketBound() {
+            sendCTCP();
+        }
+
+        String getType() {
+            return this.type;
+        }
+
+        @Override
+        String getName() {
+            return this.name;
+        }
+
+        public SocketAddress getLocal() {
+            return this.local;
+        }
+
+        void setLocal(SocketAddress local) {
+            this.local = local;
+        }
+
+        public SocketAddress getRemote() {
+            return this.remote;
+        }
+
+        void setRemote(SocketAddress remote) {
+            this.remote = remote;
+        }
+
+        void setConnected(boolean connected) {
+            this.connected = connected;
+        }
+
+        void setNettyChannel(io.netty.channel.Channel nettyChannel) {
+            this.nettyChannel = nettyChannel;
+        }
+
+        @Override
+        @Nonnull
+        IRCDCCExchangeSnapshot snapshot() {
+            throw new UnsupportedOperationException("Cannot snapshot only the exchange");
+        }
+    }
+    
+    class IRCDCCChat extends IRCDCCExchange {
+
+        private IRCDCCChat(@Nonnull String name) {
+            super("CHAT", name);
+        }
+
+        @Override
+        void onMessage(String msg) {
+            ActorProvider.this.client.getEventManager().callEvent(new DCCMessageEvent(ActorProvider.this.client, Collections.emptyList(), snapshot(), msg));
+        }
+
+        @Override
+        void sendCTCP() {
+            InetSocketAddress addr = (InetSocketAddress) this.getLocal();
+            String ctcp = String.format("DCC CHAT chat %s %s", addr.getAddress().getHostAddress(), addr.getPort());
+            ActorProvider.this.client.sendCTCPMessage(getName(), ctcp);
+        }
+
+        @Override
+        IRCDCCChatSnapshot snapshot() {
+            return new IRCDCCChatSnapshot(this);
+        }
+
+    }
+
+    abstract class IRCDCCExchangeSnapshot extends IRCActorSnapshot implements DCCExchange {
+
+        protected final io.netty.channel.Channel nettyChannel;
+        private final SocketAddress local;
+        private final SocketAddress remote;
+        private final boolean connected;
+        
+        private IRCDCCExchangeSnapshot(@Nonnull IRCDCCExchange actor) {
+            super(actor);
+            this.nettyChannel = actor.nettyChannel;
+            this.local = actor.local;
+            this.remote = actor.remote;
+            this.connected = actor.connected;
+        }
+
+        @Override
+        public SocketAddress getLocalSocket() {
+            return this.local;
+        }
+
+        @Override
+        public SocketAddress getRemoteSocket() {
+            return this.remote;
+        }
+
+        @Override
+        public boolean isConnected() {
+            return this.connected;
+        }
+
+        @Override
+        @Nonnull
+        public String toString() {
+            return new ToStringer(this).add("client", this.getClient()).add("name", this.getName()).add("localSocket", this.local).add("remoteSocket", this.remote).add("connected", this.connected).toString();
+        }
+    }
+    
+    class IRCDCCChatSnapshot extends IRCDCCExchangeSnapshot implements DCCChat {
+        
+        private IRCDCCChatSnapshot(@Nonnull IRCDCCChat actor) {
+            super(actor);
+        }
+
+        @Override
+        public void sendMessage(String message) {
+            this.nettyChannel.writeAndFlush(message.trim());
+        }
+        
+    }
+
     class IRCServer extends IRCActor {
         private IRCServer(@Nonnull String name) {
             super(name);
@@ -781,6 +926,10 @@ class ActorProvider implements Resettable {
     @Nullable
     IRCUser getUser(@Nonnull String nick) {
         return this.trackedUsers.get(nick);
+    }
+    
+    IRCDCCChat getDCCChat(@Nonnull String nick) {
+        return new IRCDCCChat(nick);
     }
 
     private void staleUser(String nick) {

@@ -977,6 +977,12 @@ class EventListener {
                         case "FINGER":
                             reply = "FINGER om nom nom tasty finger";
                             break;
+                        case "DCC":
+                            // Handle targeted DCC chat
+                            // this.fire(new DCCRequestEvent());
+                            // TODO how can the parameters be extracted @mbaxter???
+                            // I only have DCC of the following:
+                            // DCC <CHAT> <chat> <ip> <addr>
                     }
                     if (ctcpMessage.startsWith("PING ")) {
                         reply = ctcpMessage;
