@@ -52,6 +52,7 @@ import io.netty.handler.timeout.IdleStateEvent;
 import io.netty.handler.timeout.IdleStateHandler;
 import io.netty.util.CharsetUtil;
 import io.netty.util.concurrent.ScheduledFuture;
+import org.kitteh.irc.client.library.Client;
 import org.kitteh.irc.client.library.event.client.ClientConnectionClosedEvent;
 import org.kitteh.irc.client.library.event.user.DCCConnectedEvent;
 import org.kitteh.irc.client.library.event.user.DCCConnectionClosedEvent;
@@ -305,6 +306,91 @@ final class NettyManager {
         }
     }
 
+    static class DCCConnection extends ChannelInitializer<SocketChannel> {
+
+        private final IRCDCCExchange exchange;
+        private final InternalClient client;
+        // Only allow one connection per DCC. Weird, I know.
+        private boolean oneConnection;
+
+        private DCCConnection(IRCDCCExchange ex, InternalClient client) {
+            this.exchange = ex;
+            this.client = client;
+        }
+
+        @Override
+        public void initChannel(SocketChannel channel) throws Exception {
+            if (this.oneConnection) {
+                channel.close();
+                return;
+            }
+            this.oneConnection = true;
+            this.exchange.setNettyChannel(channel);
+            dccConnections.computeIfAbsent(this.client, c -> new ArrayList<>()).add(channel);
+
+            // Outbound - Processed in pipeline back to front.
+            channel.pipeline().addFirst("[OUTPUT] Output listener", new MessageToMessageEncoder<String>() {
+                @Override
+                protected void encode(ChannelHandlerContext ctx, String msg, List<Object> out) throws Exception {
+                    DCCConnection.this.client.getOutputListener().queue(msg);
+                    out.add(msg);
+                }
+            });
+            channel.pipeline().addFirst("[OUTPUT] Add line breaks", new MessageToMessageEncoder<String>() {
+                @Override
+                protected void encode(ChannelHandlerContext ctx, String msg, List<Object> out) throws Exception {
+                    out.add(msg + "\r\n");
+                }
+            });
+            channel.pipeline().addFirst("[OUTPUT] String encoder", new StringEncoder(CharsetUtil.UTF_8));
+
+            // Inbound & exceptions
+            String successHandler = "[INPUT] Success Handler";
+            channel.pipeline().addFirst("[INPUT] Exception Handler", new ChannelInboundHandlerAdapter() {
+                private boolean firstRemove;
+
+                @Override
+                public void exceptionCaught(ChannelHandlerContext ctx, Throwable cause) throws Exception {
+                    if (!this.firstRemove) {
+                        ctx.channel().pipeline().remove(successHandler);
+                        ctx.channel().close();
+                        this.firstRemove = true;
+                    }
+                    cause.printStackTrace();
+                    DCCConnection.this.client.getEventManager().callEvent(new DCCFailedEvent(DCCConnection.this.client, "Netty exception", cause));
+                }
+            });
+            channel.pipeline().addFirst(successHandler, new ChannelInboundHandlerAdapter() {
+                @Override
+                public void channelActive(ChannelHandlerContext ctx) throws Exception {
+                    DCCConnection.this.exchange.setRemoteAddress(ctx.channel().remoteAddress());
+                    DCCConnection.this.exchange.setConnected(true);
+                    DCCConnection.this.client.getEventManager().callEvent(new DCCConnectedEvent(DCCConnection.this.client, Collections.emptyList(), DCCConnection.this.exchange.snapshot()));
+                    ctx.channel().pipeline().remove(this);
+                }
+            });
+            channel.pipeline().addLast("[INPUT] Line splitter", new DelimiterBasedFrameDecoder(MAX_LINE_LENGTH, Unpooled.wrappedBuffer(new byte[]{(byte) '\r', (byte) '\n'})));
+            channel.pipeline().addLast("[INPUT] String decoder", new StringDecoder(StandardCharsets.UTF_8));
+            channel.pipeline().addLast("[INPUT] DCC Receive", new SimpleChannelInboundHandler<String>() {
+                @Override
+                protected void channelRead0(ChannelHandlerContext ctx, String msg) throws Exception {
+                    if (msg == null) {
+                        return;
+                    }
+                    DCCConnection.this.exchange.onMessage(msg);
+                }
+            });
+            channel.pipeline().addLast(new ChannelInboundHandlerAdapter() {
+                @Override
+                public void channelInactive(ChannelHandlerContext ctx) throws Exception {
+                    // kill DCC when inactive
+                    ctx.close();
+                    DCCConnection.this.client.getEventManager().callEvent(new DCCConnectionClosedEvent(DCCConnection.this.client, Collections.emptyList(), DCCConnection.this.exchange.snapshot()));
+                }
+            });
+        }
+    }
+
     @Nullable
     private static Bootstrap bootstrap;
     @Nullable
@@ -361,82 +447,7 @@ final class NettyManager {
         Sanity.nullCheck(eventLoopGroup, "A DCC connection cannot be made without a client");
         ServerBootstrap dccBootstrap = new ServerBootstrap();
         dccBootstrap.channel(NioServerSocketChannel.class);
-        dccBootstrap.childHandler(new ChannelInitializer<SocketChannel>() {
-            // Only allow one connection per DCC. Weird, I know.
-            private boolean oneConnection;
-
-            @Override
-            public void initChannel(SocketChannel channel) throws Exception {
-                if (this.oneConnection) {
-                    channel.close();
-                    return;
-                }
-                this.oneConnection = true;
-                exchange.setNettyChannel(channel);
-                dccConnections.computeIfAbsent(client, c -> new ArrayList<>()).add(channel);
-
-                // Outbound - Processed in pipeline back to front.
-                channel.pipeline().addFirst("[OUTPUT] Output listener", new MessageToMessageEncoder<String>() {
-                    @Override
-                    protected void encode(ChannelHandlerContext ctx, String msg, List<Object> out) throws Exception {
-                        client.getOutputListener().queue(msg);
-                        out.add(msg);
-                    }
-                });
-                channel.pipeline().addFirst("[OUTPUT] Add line breaks", new MessageToMessageEncoder<String>() {
-                    @Override
-                    protected void encode(ChannelHandlerContext ctx, String msg, List<Object> out) throws Exception {
-                        out.add(msg + "\r\n");
-                    }
-                });
-                channel.pipeline().addFirst("[OUTPUT] String encoder", new StringEncoder(CharsetUtil.UTF_8));
-
-                // Inbound & exceptions
-                String successHandler = "[INPUT] Success Handler";
-                channel.pipeline().addFirst("[INPUT] Exception Handler", new ChannelInboundHandlerAdapter() {
-                    private boolean firstRemove;
-
-                    @Override
-                    public void exceptionCaught(ChannelHandlerContext ctx, Throwable cause) throws Exception {
-                        if (!this.firstRemove) {
-                            ctx.channel().pipeline().remove(successHandler);
-                            ctx.channel().close();
-                            this.firstRemove = true;
-                        }
-                        cause.printStackTrace();
-                        client.getEventManager().callEvent(new DCCFailedEvent(client, "Netty exception", cause));
-                    }
-                });
-                channel.pipeline().addFirst(successHandler, new ChannelInboundHandlerAdapter() {
-                    @Override
-                    public void channelActive(ChannelHandlerContext ctx) throws Exception {
-                        exchange.setRemoteAddress(ctx.channel().remoteAddress());
-                        exchange.setConnected(true);
-                        client.getEventManager().callEvent(new DCCConnectedEvent(client, Collections.emptyList(), exchange.snapshot()));
-                        ctx.channel().pipeline().remove(this);
-                    }
-                });
-                channel.pipeline().addLast("[INPUT] Line splitter", new DelimiterBasedFrameDecoder(MAX_LINE_LENGTH, Unpooled.wrappedBuffer(new byte[]{(byte) '\r', (byte) '\n'})));
-                channel.pipeline().addLast("[INPUT] String decoder", new StringDecoder(StandardCharsets.UTF_8));
-                channel.pipeline().addLast("[INPUT] DCC Receive", new SimpleChannelInboundHandler<String>() {
-                    @Override
-                    protected void channelRead0(ChannelHandlerContext ctx, String msg) throws Exception {
-                        if (msg == null) {
-                            return;
-                        }
-                        exchange.onMessage(msg);
-                    }
-                });
-                channel.pipeline().addLast(new ChannelInboundHandlerAdapter() {
-                    @Override
-                    public void channelInactive(ChannelHandlerContext ctx) throws Exception {
-                        // kill DCC when inactive
-                        ctx.close();
-                        client.getEventManager().callEvent(new DCCConnectionClosedEvent(client, Collections.emptyList(), exchange.snapshot()));
-                    }
-                });
-            }
-        });
+        dccBootstrap.childHandler(new DCCConnection(exchange, client));
         dccBootstrap.option(ChannelOption.TCP_NODELAY, true);
         dccBootstrap.group(eventLoopGroup);
         ChannelFuture future = dccBootstrap.bind(0);
