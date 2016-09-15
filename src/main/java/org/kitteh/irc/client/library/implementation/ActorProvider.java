@@ -794,6 +794,11 @@ class ActorProvider implements Resettable {
         }
 
         @Override
+        public void close() {
+            nettyChannel.disconnect();
+        }
+
+        @Override
         @Nonnull
         public String toString() {
             return new ToStringer(this).add("client", this.getClient()).add("name", this.getName()).add("localSocketAddress", this.localAddress).add("remoteSocketAddress", this.remoteAddress).add("connected", this.connected).toString();

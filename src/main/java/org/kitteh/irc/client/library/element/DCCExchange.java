@@ -52,4 +52,9 @@ public interface DCCExchange extends Actor {
      * @return {@code true} if the exchange is connected, otherwise false
      */
     boolean isConnected();
+
+    /**
+     * Closes this DCC chat.
+     */
+    void close();
 }

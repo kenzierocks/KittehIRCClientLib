@@ -34,6 +34,7 @@ import io.netty.channel.ChannelInboundHandlerAdapter;
 import io.netty.channel.ChannelInitializer;
 import io.netty.channel.ChannelOption;
 import io.netty.channel.ChannelOutboundHandlerAdapter;
+import io.netty.channel.ChannelPromise;
 import io.netty.channel.EventLoopGroup;
 import io.netty.channel.SimpleChannelInboundHandler;
 import io.netty.channel.nio.NioEventLoopGroup;
@@ -417,7 +418,7 @@ final class NettyManager {
                 });
                 channel.pipeline().addLast("[INPUT] Line splitter", new DelimiterBasedFrameDecoder(MAX_LINE_LENGTH, Unpooled.wrappedBuffer(new byte[]{(byte) '\r', (byte) '\n'})));
                 channel.pipeline().addLast("[INPUT] String decoder", new StringDecoder(StandardCharsets.UTF_8));
-                channel.pipeline().addLast("[INPUT] DCC Recieve", new SimpleChannelInboundHandler<String>() {
+                channel.pipeline().addLast("[INPUT] DCC Receive", new SimpleChannelInboundHandler<String>() {
                     @Override
                     protected void channelRead0(ChannelHandlerContext ctx, String msg) throws Exception {
                         if (msg == null) {
