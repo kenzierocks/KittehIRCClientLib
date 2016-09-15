@@ -34,7 +34,6 @@ import io.netty.channel.ChannelInboundHandlerAdapter;
 import io.netty.channel.ChannelInitializer;
 import io.netty.channel.ChannelOption;
 import io.netty.channel.ChannelOutboundHandlerAdapter;
-import io.netty.channel.ChannelPromise;
 import io.netty.channel.EventLoopGroup;
 import io.netty.channel.SimpleChannelInboundHandler;
 import io.netty.channel.nio.NioEventLoopGroup;
@@ -52,7 +51,6 @@ import io.netty.handler.timeout.IdleStateEvent;
 import io.netty.handler.timeout.IdleStateHandler;
 import io.netty.util.CharsetUtil;
 import io.netty.util.concurrent.ScheduledFuture;
-import org.kitteh.irc.client.library.Client;
 import org.kitteh.irc.client.library.event.client.ClientConnectionClosedEvent;
 import org.kitteh.irc.client.library.event.user.DCCConnectedEvent;
 import org.kitteh.irc.client.library.event.user.DCCConnectionClosedEvent;
@@ -313,15 +311,10 @@ final class NettyManager {
         private final InternalClient client;
         // Only allow one connection per DCC. Weird, I know.
         private boolean oneConnection;
-        private ScheduledFuture<?> timeoutFuture;
 
         private DCCConnection(IRCDCCExchange ex, InternalClient client) {
             this.exchange = ex;
             this.client = client;
-        }
-
-        void setTimeoutFuture(ScheduledFuture<?> timeoutFuture) {
-            this.timeoutFuture = timeoutFuture;
         }
 
         @Override
@@ -331,11 +324,6 @@ final class NettyManager {
                 return;
             }
             this.oneConnection = true;
-            if (this.timeoutFuture.isCancelled() || this.timeoutFuture.isDone()) {
-                // channel is no longer available
-                return;
-            }
-            this.timeoutFuture.cancel(true);
             this.exchange.setNettyChannel(channel);
             dccConnections.computeIfAbsent(this.client, c -> new ArrayList<>()).add(channel);
 
@@ -473,12 +461,6 @@ final class NettyManager {
                 client.getEventManager().callEvent(new DCCFailedEvent(client, "Failed to bind to address " + future.channel().localAddress(), ft.cause()));
             }
         });
-        // Timeout connection after 5 seconds.
-        ScheduledFuture<?> timeout = eventLoopGroup.schedule(() -> {
-            future.channel().close();
-            client.getEventManager().callEvent(new DCCFailedEvent(client, "Timed out waiting for a reply.", null));
-        }, 5, TimeUnit.SECONDS);
-        childHandler.setTimeoutFuture(timeout);
         return () -> future.channel().close();
     }
 
