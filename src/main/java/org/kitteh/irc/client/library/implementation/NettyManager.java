@@ -312,10 +312,15 @@ final class NettyManager {
         private final InternalClient client;
         // Only allow one connection per DCC. Weird, I know.
         private boolean oneConnection;
+        private ScheduledFuture<?> timeoutFuture;
 
         private DCCConnection(IRCDCCExchange ex, InternalClient client) {
             this.exchange = ex;
             this.client = client;
+        }
+
+        void setTimeoutFuture(ScheduledFuture<?> timeoutFuture) {
+            this.timeoutFuture = timeoutFuture;
         }
 
         @Override
@@ -325,6 +330,11 @@ final class NettyManager {
                 return;
             }
             this.oneConnection = true;
+            if (timeoutFuture.isCancelled() || timeoutFuture.isDone()) {
+                // channel is no longer available
+                return;
+            }
+            timeoutFuture.cancel(true);
             this.exchange.setNettyChannel(channel);
             dccConnections.computeIfAbsent(this.client, c -> new ArrayList<>()).add(channel);
 
@@ -447,8 +457,10 @@ final class NettyManager {
         Sanity.nullCheck(eventLoopGroup, "A DCC connection cannot be made without a client");
         ServerBootstrap dccBootstrap = new ServerBootstrap();
         dccBootstrap.channel(NioServerSocketChannel.class);
-        dccBootstrap.childHandler(new DCCConnection(exchange, client));
-        dccBootstrap.option(ChannelOption.TCP_NODELAY, true);
+        DCCConnection childHandler = new DCCConnection(exchange, client);
+        dccBootstrap.childHandler(childHandler);
+        dccBootstrap.childOption(ChannelOption.TCP_NODELAY, true);
+        dccBootstrap.childOption(ChannelOption.SO_KEEPALIVE, true);
         dccBootstrap.group(eventLoopGroup);
         ChannelFuture future = dccBootstrap.bind(0);
         future.addListener(ft -> {
@@ -459,6 +471,9 @@ final class NettyManager {
                 client.getEventManager().callEvent(new DCCFailedEvent(client, "Failed to bind to address " + future.channel().localAddress(), ft.cause()));
             }
         });
+        // Timeout connection after 5 seconds.
+        ScheduledFuture<?> timeout = eventLoopGroup.schedule(() -> future.channel().close(), 5, TimeUnit.SECONDS);
+        childHandler.setTimeoutFuture(timeout);
         return () -> future.channel().close();
     }
 
