@@ -33,7 +33,6 @@ import javax.annotation.Nonnull;
 import java.util.List;
 
 public class DCCMessageEvent extends ActorMessageEventBase<DCCChat> implements Replyable {
-
     public DCCMessageEvent(Client client, List<ServerMessage> originalMessages, DCCChat actor, String message) {
         super(client, originalMessages, actor, message);
     }
@@ -42,5 +41,4 @@ public class DCCMessageEvent extends ActorMessageEventBase<DCCChat> implements R
     public void sendReply(@Nonnull String message) {
         this.getActor().sendMessage(message);
     }
-
 }
