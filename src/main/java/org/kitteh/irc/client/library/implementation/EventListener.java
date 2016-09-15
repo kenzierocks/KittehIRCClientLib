@@ -983,6 +983,7 @@ class EventListener {
                             // TODO how can the parameters be extracted @mbaxter???
                             // I only have DCC of the following:
                             // DCC <CHAT> <chat> <ip> <addr>
+                            break;
                     }
                     if (ctcpMessage.startsWith("PING ")) {
                         reply = ctcpMessage;

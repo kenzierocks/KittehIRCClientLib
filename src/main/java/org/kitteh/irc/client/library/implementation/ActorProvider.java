@@ -680,12 +680,11 @@ class ActorProvider implements Resettable {
     }
 
     abstract class IRCDCCExchange extends IRCActor {
-
         private final String type;
         private final String name;
         private io.netty.channel.Channel nettyChannel;
-        private SocketAddress local;
-        private SocketAddress remote;
+        private SocketAddress localAddress;
+        private SocketAddress remoteAddress;
         private boolean connected;
         
         private IRCDCCExchange(@Nonnull String type, @Nonnull String name) {
@@ -708,24 +707,25 @@ class ActorProvider implements Resettable {
         }
 
         @Override
+        @Nonnull
         String getName() {
             return this.name;
         }
 
-        public SocketAddress getLocal() {
-            return this.local;
+        SocketAddress getLocalAddress() {
+            return this.localAddress;
         }
 
-        void setLocal(SocketAddress local) {
-            this.local = local;
+        void setLocalAddress(SocketAddress localAddress) {
+            this.localAddress = localAddress;
         }
 
-        public SocketAddress getRemote() {
-            return this.remote;
+        SocketAddress getRemoteAddress() {
+            return this.remoteAddress;
         }
 
-        void setRemote(SocketAddress remote) {
-            this.remote = remote;
+        void setRemoteAddress(SocketAddress remoteAddress) {
+            this.remoteAddress = remoteAddress;
         }
 
         void setConnected(boolean connected) {
@@ -737,14 +737,12 @@ class ActorProvider implements Resettable {
         }
 
         @Override
-        @Nonnull
         IRCDCCExchangeSnapshot snapshot() {
             throw new UnsupportedOperationException("Cannot snapshot only the exchange");
         }
     }
     
     class IRCDCCChat extends IRCDCCExchange {
-
         private IRCDCCChat(@Nonnull String name) {
             super("CHAT", name);
         }
@@ -756,7 +754,7 @@ class ActorProvider implements Resettable {
 
         @Override
         void sendCTCP() {
-            InetSocketAddress addr = (InetSocketAddress) this.getLocal();
+            InetSocketAddress addr = (InetSocketAddress) this.getLocalAddress();
             String ctcp = String.format("DCC CHAT chat %s %s", addr.getAddress().getHostAddress(), addr.getPort());
             ActorProvider.this.client.sendCTCPMessage(getName(), ctcp);
         }
@@ -765,32 +763,30 @@ class ActorProvider implements Resettable {
         IRCDCCChatSnapshot snapshot() {
             return new IRCDCCChatSnapshot(this);
         }
-
     }
 
     abstract class IRCDCCExchangeSnapshot extends IRCActorSnapshot implements DCCExchange {
-
-        protected final io.netty.channel.Channel nettyChannel;
-        private final SocketAddress local;
-        private final SocketAddress remote;
+        final io.netty.channel.Channel nettyChannel;
+        private final SocketAddress localAddress;
+        private final SocketAddress remoteAddress;
         private final boolean connected;
         
         private IRCDCCExchangeSnapshot(@Nonnull IRCDCCExchange actor) {
             super(actor);
             this.nettyChannel = actor.nettyChannel;
-            this.local = actor.local;
-            this.remote = actor.remote;
+            this.localAddress = actor.localAddress;
+            this.remoteAddress = actor.remoteAddress;
             this.connected = actor.connected;
         }
 
         @Override
-        public SocketAddress getLocalSocket() {
-            return this.local;
+        public SocketAddress getLocalSocketAddress() {
+            return this.localAddress;
         }
 
         @Override
-        public SocketAddress getRemoteSocket() {
-            return this.remote;
+        public SocketAddress getRemoteSocketAddress() {
+            return this.remoteAddress;
         }
 
         @Override
@@ -801,21 +797,20 @@ class ActorProvider implements Resettable {
         @Override
         @Nonnull
         public String toString() {
-            return new ToStringer(this).add("client", this.getClient()).add("name", this.getName()).add("localSocket", this.local).add("remoteSocket", this.remote).add("connected", this.connected).toString();
+            return new ToStringer(this).add("client", this.getClient()).add("name", this.getName()).add("localSocketAddress", this.localAddress).add("remoteSocketAddress", this.remoteAddress).add("connected", this.connected).toString();
         }
     }
     
     class IRCDCCChatSnapshot extends IRCDCCExchangeSnapshot implements DCCChat {
-        
         private IRCDCCChatSnapshot(@Nonnull IRCDCCChat actor) {
             super(actor);
         }
 
         @Override
-        public void sendMessage(String message) {
+        public void sendMessage(@Nonnull String message) {
+            Sanity.nullCheck(message, "message cannot be null");
             this.nettyChannel.writeAndFlush(message.trim());
         }
-        
     }
 
     class IRCServer extends IRCActor {

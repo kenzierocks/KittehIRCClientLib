@@ -172,7 +172,7 @@ final class NettyManager {
 
             // Inbound
             this.channel.pipeline().addLast("[INPUT] Line splitter", new DelimiterBasedFrameDecoder(MAX_LINE_LENGTH,
-                    Unpooled.wrappedBuffer(new byte[] { (byte) '\r', (byte) '\n' })));
+                    Unpooled.wrappedBuffer(new byte[]{(byte) '\r', (byte) '\n'})));
             this.channel.pipeline().addLast("[INPUT] String decoder", new StringDecoder(CharsetUtil.UTF_8));
             this.channel.pipeline().addLast("[INPUT] Send to client", new SimpleChannelInboundHandler<String>() {
 
@@ -281,11 +281,7 @@ final class NettyManager {
                 }
                 long delay = 0;
                 if (this.scheduledSending != null) {
-                    delay = this.scheduledSending.getDelay(TimeUnit.MILLISECONDS); // Negligible
-                                                                                   // added
-                                                                                   // delay
-                                                                                   // processing
-                                                                                   // this
+                    delay = this.scheduledSending.getDelay(TimeUnit.MILLISECONDS); // Negligible added delay processing this
                     this.scheduledSending.cancel(false);
                 }
                 if (this.scheduledPing != null) {
@@ -297,8 +293,7 @@ final class NettyManager {
                         ClientConnection.this.channel.writeAndFlush(message);
                     }
                 }, delay, this.client.getMessageDelay(), TimeUnit.MILLISECONDS);
-                this.scheduledPing =
-                        this.channel.eventLoop().scheduleWithFixedDelay(this.client::ping, 60, 60, TimeUnit.SECONDS);
+                this.scheduledPing = this.channel.eventLoop().scheduleWithFixedDelay(this.client::ping, 60, 60, TimeUnit.SECONDS);
             }
         }
 
@@ -327,8 +322,7 @@ final class NettyManager {
 
     }
 
-    private static synchronized void
-            removeClientConnection(@Nonnull ClientConnection connection, boolean reconnecting) {
+    private static synchronized void removeClientConnection(@Nonnull ClientConnection connection, boolean reconnecting) {
         connections.remove(connection);
         List<Channel> dcc = dccConnections.get(connection.client);
         if (dcc != null) {
@@ -375,7 +369,7 @@ final class NettyManager {
         ServerBootstrap dccBootstrap = new ServerBootstrap();
         dccBootstrap.channel(NioServerSocketChannel.class);
         dccBootstrap.childHandler(new ChannelInitializer<SocketChannel>() {
-            
+
             // Only allow one connection per DCC. Weird, I know.
             private boolean oneConnection;
 
@@ -406,7 +400,7 @@ final class NettyManager {
                     }
                 });
                 channel.pipeline().addFirst("[OUTPUT] String encoder", new StringEncoder(CharsetUtil.UTF_8));
-                
+
                 // Inbound & exceptions
                 String successHandler = "[INPUT] Success Handler";
                 channel.pipeline().addFirst("[INPUT] Exception Handler", new ChannelInboundHandlerAdapter() {
@@ -429,7 +423,7 @@ final class NettyManager {
 
                     @Override
                     public void channelActive(ChannelHandlerContext ctx) throws Exception {
-                        exchange.setRemote(ctx.channel().remoteAddress());
+                        exchange.setRemoteAddress(ctx.channel().remoteAddress());
                         exchange.setConnected(true);
                         client.getEventManager()
                                 .callEvent(new DCCConnectedEvent(client, Collections.emptyList(), exchange.snapshot()));
@@ -438,7 +432,7 @@ final class NettyManager {
 
                 });
                 channel.pipeline().addLast("[INPUT] Line splitter", new DelimiterBasedFrameDecoder(MAX_LINE_LENGTH,
-                        Unpooled.wrappedBuffer(new byte[] { (byte) '\r', (byte) '\n' })));
+                        Unpooled.wrappedBuffer(new byte[]{(byte) '\r', (byte) '\n'})));
                 channel.pipeline().addLast("[INPUT] String decoder", new StringDecoder(StandardCharsets.UTF_8));
                 channel.pipeline().addLast("[INPUT] DCC Recieve", new SimpleChannelInboundHandler<String>() {
 
@@ -466,7 +460,7 @@ final class NettyManager {
         ChannelFuture future = dccBootstrap.bind(0);
         future.addListener(ft -> {
             if (ft.isSuccess()) {
-                exchange.setLocal(future.channel().localAddress());
+                exchange.setLocalAddress(future.channel().localAddress());
                 exchange.onSocketBound();
             } else {
                 client.getEventManager().callEvent(

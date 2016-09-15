@@ -34,9 +34,7 @@ import java.util.List;
  * Fires when a {@link DCCExchange} connects.
  */
 public class DCCConnectedEvent extends ActorEventBase<DCCExchange> {
-
     public DCCConnectedEvent(Client client, List<ServerMessage> originalMessages, DCCExchange actor) {
         super(client, originalMessages, actor);
     }
-
 }

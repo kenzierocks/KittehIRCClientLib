@@ -31,7 +31,6 @@ import org.kitteh.irc.client.library.event.abstractbase.ClientEventBase;
  * Fires when a {@link DCCExchange} connection fails.
  */
 public class DCCFailedEvent extends ClientEventBase {
-
     private final String reason;
     private final Throwable cause;
 
@@ -54,5 +53,4 @@ public class DCCFailedEvent extends ClientEventBase {
     public Throwable getCause() {
         return this.cause;
     }
-
 }
