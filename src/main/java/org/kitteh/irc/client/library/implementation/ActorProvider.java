@@ -694,12 +694,12 @@ class ActorProvider implements Resettable {
             NettyManager.connectDCC(ActorProvider.this.client, this);
         }
         
-        abstract void sendCTCP();
+        abstract String getCTCP();
 
         abstract void onMessage(String msg);
         
         final void onSocketBound() {
-            sendCTCP();
+            ActorProvider.this.client.sendCTCPMessage(this.getName(), this.getCTCP());
         }
 
         String getType() {
@@ -753,10 +753,9 @@ class ActorProvider implements Resettable {
         }
 
         @Override
-        void sendCTCP() {
+        String getCTCP() {
             InetSocketAddress addr = (InetSocketAddress) this.getLocalAddress();
-            String ctcp = String.format("DCC CHAT chat %s %s", addr.getAddress().getHostAddress(), addr.getPort());
-            ActorProvider.this.client.sendCTCPMessage(getName(), ctcp);
+            return String.format("DCC CHAT chat %s %s", addr.getAddress().getHostAddress(), addr.getPort());
         }
 
         @Override
@@ -780,13 +779,13 @@ class ActorProvider implements Resettable {
         }
 
         @Override
-        public SocketAddress getLocalSocketAddress() {
-            return this.localAddress;
+        public Optional<SocketAddress> getLocalSocketAddress() {
+            return Optional.ofNullable(this.localAddress);
         }
 
         @Override
-        public SocketAddress getRemoteSocketAddress() {
-            return this.remoteAddress;
+        public Optional<SocketAddress> getRemoteSocketAddress() {
+            return Optional.ofNullable(this.remoteAddress);
         }
 
         @Override

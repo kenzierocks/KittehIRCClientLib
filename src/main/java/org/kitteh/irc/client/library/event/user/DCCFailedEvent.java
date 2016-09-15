@@ -27,30 +27,35 @@ import org.kitteh.irc.client.library.Client;
 import org.kitteh.irc.client.library.element.DCCExchange;
 import org.kitteh.irc.client.library.event.abstractbase.ClientEventBase;
 
+import javax.annotation.Nullable;
+import java.util.Optional;
+
 /**
  * Fires when a {@link DCCExchange} connection fails.
  */
 public class DCCFailedEvent extends ClientEventBase {
+    @Nullable
     private final String reason;
+    @Nullable
     private final Throwable cause;
 
-    public DCCFailedEvent(Client client, String reason, Throwable cause) {
+    public DCCFailedEvent(Client client, @Nullable String reason, @Nullable Throwable cause) {
         super(client);
         this.reason = reason;
         this.cause = cause;
     }
 
     /**
-     * @return the readable reason for the failure, or null
+     * @return the readable reason for the failure
      */
-    public String getReason() {
-        return this.reason;
+    public Optional<String> getReason() {
+        return Optional.ofNullable(this.reason);
     }
 
     /**
-     * @return the exception that caused the failure, or null
+     * @return the exception that caused the failure
      */
-    public Throwable getCause() {
-        return this.cause;
+    public Optional<Throwable> getCause() {
+        return Optional.ofNullable(this.cause);
     }
 }

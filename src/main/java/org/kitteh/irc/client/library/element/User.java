@@ -109,6 +109,7 @@ public interface User extends MessageReceiver, Staleable {
      *
      * <p>When the chat is connected, a {@link DCCConnectedEvent} will be fired. If the connection fails,
      * a {@link DCCFailedEvent} will be fired.</p>
+     *
      * @see Client#beginDCCChat(User)
      */
     default void beginDCCChat() {

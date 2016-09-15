@@ -24,6 +24,7 @@
 package org.kitteh.irc.client.library.element;
 
 import java.net.SocketAddress;
+import java.util.Optional;
 
 /**
  * Represents an exchange using DCC.
@@ -31,19 +32,19 @@ import java.net.SocketAddress;
 public interface DCCExchange extends Actor {
     /**
      * Gets the socket address of the local end.
-     * May return null if not connected.
+     * May return {@link Optional#empty()} if not connected.
      *
      * @return the socket address of the local end
      */
-    SocketAddress getLocalSocketAddress();
+    Optional<SocketAddress> getLocalSocketAddress();
 
     /**
      * Gets the socket address of the remote end.
-     * May return null if not connected.
+     * May return {@link Optional#empty()} if not connected.
      *
      * @return the socket address of the remote end
      */
-    SocketAddress getRemoteSocketAddress();
+    Optional<SocketAddress> getRemoteSocketAddress();
 
     /**
      * Gets the connection status.
