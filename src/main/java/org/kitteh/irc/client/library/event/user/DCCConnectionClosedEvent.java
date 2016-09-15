@@ -34,7 +34,7 @@ import java.util.List;
  * Fires when a {@link DCCExchange} is terminated.
  */
 public class DCCConnectionClosedEvent extends ActorEventBase<DCCExchange> {
-    protected DCCConnectionClosedEvent(Client client, List<ServerMessage> originalMessages, DCCExchange actor) {
+    public DCCConnectionClosedEvent(Client client, List<ServerMessage> originalMessages, DCCExchange actor) {
         super(client, originalMessages, actor);
     }
 }
