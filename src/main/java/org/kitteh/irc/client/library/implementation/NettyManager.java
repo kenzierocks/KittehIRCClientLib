@@ -57,6 +57,7 @@ import org.kitteh.irc.client.library.event.client.ClientConnectionClosedEvent;
 import org.kitteh.irc.client.library.event.user.DCCConnectedEvent;
 import org.kitteh.irc.client.library.event.user.DCCConnectionClosedEvent;
 import org.kitteh.irc.client.library.event.user.DCCFailedEvent;
+import org.kitteh.irc.client.library.event.user.DCCSocketBoundEvent;
 import org.kitteh.irc.client.library.exception.KittehConnectionException;
 import org.kitteh.irc.client.library.implementation.ActorProvider.IRCDCCExchange;
 import org.kitteh.irc.client.library.util.QueueProcessingThread;
@@ -466,13 +467,17 @@ final class NettyManager {
         future.addListener(ft -> {
             if (ft.isSuccess()) {
                 exchange.setLocalAddress(future.channel().localAddress());
+                client.getEventManager().callEvent(new DCCSocketBoundEvent(client, Collections.emptyList(), exchange.snapshot()));
                 exchange.onSocketBound();
             } else {
                 client.getEventManager().callEvent(new DCCFailedEvent(client, "Failed to bind to address " + future.channel().localAddress(), ft.cause()));
             }
         });
         // Timeout connection after 5 seconds.
-        ScheduledFuture<?> timeout = eventLoopGroup.schedule(() -> future.channel().close(), 5, TimeUnit.SECONDS);
+        ScheduledFuture<?> timeout = eventLoopGroup.schedule(() -> {
+            future.channel().close();
+            client.getEventManager().callEvent(new DCCFailedEvent(client, "Timed out waiting for a reply.", null));
+        }, 5, TimeUnit.SECONDS);
         childHandler.setTimeoutFuture(timeout);
         return () -> future.channel().close();
     }

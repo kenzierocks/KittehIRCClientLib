@@ -833,10 +833,10 @@ public interface Client {
     void shutdown(@Nonnull String reason);
 
     /**
-     * Begins a DCC chat with the target user.
+     * Sends a DCC CHAT request to the target.
      *
      * <p>When the chat is connected, a {@link DCCConnectedEvent} will be fired. If the connection fails,
      * a {@link DCCFailedEvent} will be fired.</p>
      */
-    void beginDCCChat(@Nonnull User target);
+    void requestDCCChat(@Nonnull User target);
 }

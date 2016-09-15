@@ -105,15 +105,15 @@ public interface User extends MessageReceiver, Staleable {
     boolean isAway();
 
     /**
-     * Begins a DCC chat with this user.
+     * Sends a DCC CHAT request to this user.
      *
      * <p>When the chat is connected, a {@link DCCConnectedEvent} will be fired. If the connection fails,
      * a {@link DCCFailedEvent} will be fired.</p>
      *
-     * @see Client#beginDCCChat(User)
+     * @see Client#requestDCCChat(User)
      */
-    default void beginDCCChat() {
-        this.getClient().beginDCCChat(this);
+    default void requestDCCChat() {
+        this.getClient().requestDCCChat(this);
     }
 
 }
