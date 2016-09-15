@@ -830,6 +830,5 @@ public interface Client {
      */
     void shutdown(@Nonnull String reason);
 
-    @Nonnull
     void beginDCCChat(@Nonnull User target);
 }
