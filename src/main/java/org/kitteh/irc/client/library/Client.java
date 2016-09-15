@@ -29,6 +29,8 @@ import org.kitteh.irc.client.library.element.User;
 import org.kitteh.irc.client.library.element.mode.ModeStatusList;
 import org.kitteh.irc.client.library.element.mode.UserMode;
 import org.kitteh.irc.client.library.event.client.ClientConnectedEvent;
+import org.kitteh.irc.client.library.event.user.DCCConnectedEvent;
+import org.kitteh.irc.client.library.event.user.DCCFailedEvent;
 import org.kitteh.irc.client.library.event.user.PrivateCTCPQueryEvent;
 import org.kitteh.irc.client.library.feature.AuthManager;
 import org.kitteh.irc.client.library.feature.CapabilityManager;
@@ -830,5 +832,11 @@ public interface Client {
      */
     void shutdown(@Nonnull String reason);
 
+    /**
+     * Begins a DCC chat with the target user.
+     *
+     * <p>When the chat is connected, a {@link DCCConnectedEvent} will be fired. If the connection fails,
+     * a {@link DCCFailedEvent} will be fired.</p>
+     */
     void beginDCCChat(@Nonnull User target);
 }
