@@ -795,7 +795,7 @@ class ActorProvider implements Resettable {
 
         @Override
         public void close() {
-            nettyChannel.disconnect();
+            this.nettyChannel.disconnect();
         }
 
         @Override
