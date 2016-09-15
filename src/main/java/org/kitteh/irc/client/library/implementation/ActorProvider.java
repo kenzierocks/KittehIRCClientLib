@@ -24,6 +24,28 @@
 package org.kitteh.irc.client.library.implementation;
 
 
+import org.kitteh.irc.client.library.Client;
+import org.kitteh.irc.client.library.command.ChannelModeCommand;
+import org.kitteh.irc.client.library.element.Actor;
+import org.kitteh.irc.client.library.element.Channel;
+import org.kitteh.irc.client.library.element.DCCChat;
+import org.kitteh.irc.client.library.element.DCCExchange;
+import org.kitteh.irc.client.library.element.ISupportParameter;
+import org.kitteh.irc.client.library.element.Server;
+import org.kitteh.irc.client.library.element.Staleable;
+import org.kitteh.irc.client.library.element.User;
+import org.kitteh.irc.client.library.element.mode.ChannelMode;
+import org.kitteh.irc.client.library.element.mode.ChannelUserMode;
+import org.kitteh.irc.client.library.element.mode.ModeInfo;
+import org.kitteh.irc.client.library.element.mode.ModeStatus;
+import org.kitteh.irc.client.library.element.mode.ModeStatusList;
+import org.kitteh.irc.client.library.event.user.DCCMessageEvent;
+import org.kitteh.irc.client.library.util.CIKeyMap;
+import org.kitteh.irc.client.library.util.Sanity;
+import org.kitteh.irc.client.library.util.ToStringer;
+
+import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import java.net.InetSocketAddress;
 import java.net.SocketAddress;
 import java.time.Instant;
@@ -46,29 +68,6 @@ import java.util.function.Supplier;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
-
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
-
-import org.kitteh.irc.client.library.Client;
-import org.kitteh.irc.client.library.command.ChannelModeCommand;
-import org.kitteh.irc.client.library.element.Actor;
-import org.kitteh.irc.client.library.element.Channel;
-import org.kitteh.irc.client.library.element.DCCChat;
-import org.kitteh.irc.client.library.element.DCCExchange;
-import org.kitteh.irc.client.library.element.ISupportParameter;
-import org.kitteh.irc.client.library.element.Server;
-import org.kitteh.irc.client.library.element.Staleable;
-import org.kitteh.irc.client.library.element.User;
-import org.kitteh.irc.client.library.element.mode.ChannelMode;
-import org.kitteh.irc.client.library.element.mode.ChannelUserMode;
-import org.kitteh.irc.client.library.element.mode.ModeInfo;
-import org.kitteh.irc.client.library.element.mode.ModeStatus;
-import org.kitteh.irc.client.library.element.mode.ModeStatusList;
-import org.kitteh.irc.client.library.event.user.DCCMessageEvent;
-import org.kitteh.irc.client.library.util.CIKeyMap;
-import org.kitteh.irc.client.library.util.Sanity;
-import org.kitteh.irc.client.library.util.ToStringer;
 
 class ActorProvider implements Resettable {
     class IRCActor {

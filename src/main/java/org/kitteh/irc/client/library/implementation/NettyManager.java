@@ -23,38 +23,6 @@
  */
 package org.kitteh.irc.client.library.implementation;
 
-import java.io.File;
-import java.io.IOException;
-import java.net.SocketAddress;
-import java.nio.charset.StandardCharsets;
-import java.security.KeyStore;
-import java.security.KeyStoreException;
-import java.security.NoSuchAlgorithmException;
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Map;
-import java.util.Queue;
-import java.util.Set;
-import java.util.concurrent.ConcurrentLinkedQueue;
-import java.util.concurrent.TimeUnit;
-
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
-import javax.net.ssl.SSLException;
-import javax.net.ssl.TrustManagerFactory;
-
-import org.kitteh.irc.client.library.event.client.ClientConnectionClosedEvent;
-import org.kitteh.irc.client.library.event.user.DCCConnectedEvent;
-import org.kitteh.irc.client.library.event.user.DCCFailedEvent;
-import org.kitteh.irc.client.library.exception.KittehConnectionException;
-import org.kitteh.irc.client.library.implementation.ActorProvider.IRCDCCExchange;
-import org.kitteh.irc.client.library.util.QueueProcessingThread;
-import org.kitteh.irc.client.library.util.Sanity;
-import org.kitteh.irc.client.library.util.ToStringer;
-
 import io.netty.bootstrap.Bootstrap;
 import io.netty.bootstrap.ServerBootstrap;
 import io.netty.buffer.Unpooled;
@@ -83,6 +51,36 @@ import io.netty.handler.timeout.IdleStateEvent;
 import io.netty.handler.timeout.IdleStateHandler;
 import io.netty.util.CharsetUtil;
 import io.netty.util.concurrent.ScheduledFuture;
+import org.kitteh.irc.client.library.event.client.ClientConnectionClosedEvent;
+import org.kitteh.irc.client.library.event.user.DCCConnectedEvent;
+import org.kitteh.irc.client.library.event.user.DCCFailedEvent;
+import org.kitteh.irc.client.library.exception.KittehConnectionException;
+import org.kitteh.irc.client.library.implementation.ActorProvider.IRCDCCExchange;
+import org.kitteh.irc.client.library.util.QueueProcessingThread;
+import org.kitteh.irc.client.library.util.Sanity;
+import org.kitteh.irc.client.library.util.ToStringer;
+
+import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
+import javax.net.ssl.SSLException;
+import javax.net.ssl.TrustManagerFactory;
+import java.io.File;
+import java.io.IOException;
+import java.net.SocketAddress;
+import java.nio.charset.StandardCharsets;
+import java.security.KeyStore;
+import java.security.KeyStoreException;
+import java.security.NoSuchAlgorithmException;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Queue;
+import java.util.Set;
+import java.util.concurrent.ConcurrentLinkedQueue;
+import java.util.concurrent.TimeUnit;
 
 final class NettyManager {
 
