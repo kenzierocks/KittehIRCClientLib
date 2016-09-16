@@ -340,7 +340,7 @@ final class NettyManager {
                         this.firstRemove = true;
                     }
                     if (cause instanceof Exception) {
-                        client.getExceptionListener().queue((Exception) cause);
+                        DCCConnection.this.client.getExceptionListener().queue((Exception) cause);
                     }
                 }
             });
@@ -348,7 +348,7 @@ final class NettyManager {
                 @Override
                 public void exceptionCaught(ChannelHandlerContext ctx, Throwable cause) throws Exception {
                     if (cause instanceof Exception) {
-                        client.getExceptionListener().queue((Exception) cause);
+                        DCCConnection.this.client.getExceptionListener().queue((Exception) cause);
                     }
                 }
             });
