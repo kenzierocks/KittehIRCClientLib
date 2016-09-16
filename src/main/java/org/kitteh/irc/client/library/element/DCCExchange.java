@@ -23,13 +23,14 @@
  */
 package org.kitteh.irc.client.library.element;
 
+import java.io.Closeable;
 import java.net.SocketAddress;
 import java.util.Optional;
 
 /**
  * Represents an exchange using DCC.
  */
-public interface DCCExchange extends Actor {
+public interface DCCExchange extends Actor, Closeable {
     /**
      * @return the socket address of the local end
      */
@@ -49,6 +50,10 @@ public interface DCCExchange extends Actor {
     /**
      * Closes this DCC exchange. It will no longer be
      * {@link #isConnected() connected}.
+     *
+     * <p>Note: Because this is a snapshot, the connected status
+     * <em>will not</em> be updated on this object.</p>
      */
+    @Override
     void close();
 }

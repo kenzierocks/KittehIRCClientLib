@@ -69,7 +69,6 @@ import javax.net.ssl.TrustManagerFactory;
 import java.io.File;
 import java.io.IOException;
 import java.net.SocketAddress;
-import java.nio.charset.StandardCharsets;
 import java.security.KeyStore;
 import java.security.KeyStoreException;
 import java.security.NoSuchAlgorithmException;
@@ -83,6 +82,7 @@ import java.util.Queue;
 import java.util.Set;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.TimeUnit;
+import java.util.function.Consumer;
 
 final class NettyManager {
     private static final int MAX_LINE_LENGTH = 2048;
@@ -135,23 +135,7 @@ final class NettyManager {
         }
 
         private void buildOurFutureTogether() {
-            // Outbound - Processed in pipeline back to front.
-            this.channel.pipeline().addFirst("[OUTPUT] Output listener", new MessageToMessageEncoder<String>() {
-
-                @Override
-                protected void encode(ChannelHandlerContext ctx, String msg, List<Object> out) throws Exception {
-                    ClientConnection.this.client.getOutputListener().queue(msg);
-                    out.add(msg);
-                }
-            });
-            this.channel.pipeline().addFirst("[OUTPUT] Add line breaks", new MessageToMessageEncoder<String>() {
-
-                @Override
-                protected void encode(ChannelHandlerContext ctx, String msg, List<Object> out) throws Exception {
-                    out.add(msg + "\r\n");
-                }
-            });
-            this.channel.pipeline().addFirst("[OUTPUT] String encoder", new StringEncoder(CharsetUtil.UTF_8));
+            addOutputEncoder(this.channel, this.client);
 
             // Handle timeout
             this.channel.pipeline().addLast("[INPUT] Idle state handler", new IdleStateHandler(250, 0, 0));
@@ -168,20 +152,7 @@ final class NettyManager {
                 }
             });
 
-            // Inbound
-            this.channel.pipeline().addLast("[INPUT] Line splitter", new DelimiterBasedFrameDecoder(MAX_LINE_LENGTH, Unpooled.wrappedBuffer(new byte[]{(byte) '\r', (byte) '\n'})));
-            this.channel.pipeline().addLast("[INPUT] String decoder", new StringDecoder(CharsetUtil.UTF_8));
-            this.channel.pipeline().addLast("[INPUT] Send to client", new SimpleChannelInboundHandler<String>() {
-
-                @Override
-                protected void channelRead0(ChannelHandlerContext ctx, String msg) throws Exception {
-                    if (msg == null) {
-                        return;
-                    }
-                    ClientConnection.this.client.getInputListener().queue(msg);
-                    ClientConnection.this.client.processLine(msg);
-                }
-            });
+            addInputDecoder(this.channel, this.client, this.client::processLine);
 
             // SSL
             if (this.client.getConfig().getNotNull(Config.SSL)) {
@@ -326,21 +297,7 @@ final class NettyManager {
             this.exchange.setNettyChannel(channel);
             dccConnections.computeIfAbsent(this.client, c -> new ArrayList<>()).add(channel);
 
-            // Outbound - Processed in pipeline back to front.
-            channel.pipeline().addFirst("[OUTPUT] Output listener", new MessageToMessageEncoder<String>() {
-                @Override
-                protected void encode(ChannelHandlerContext ctx, String msg, List<Object> out) throws Exception {
-                    DCCConnection.this.client.getOutputListener().queue(msg);
-                    out.add(msg);
-                }
-            });
-            channel.pipeline().addFirst("[OUTPUT] Add line breaks", new MessageToMessageEncoder<String>() {
-                @Override
-                protected void encode(ChannelHandlerContext ctx, String msg, List<Object> out) throws Exception {
-                    out.add(msg + "\r\n");
-                }
-            });
-            channel.pipeline().addFirst("[OUTPUT] String encoder", new StringEncoder(CharsetUtil.UTF_8));
+            addOutputEncoder(channel, this.client);
 
             // Inbound & exceptions
             String successHandler = "[INPUT] Success Handler";
@@ -367,17 +324,7 @@ final class NettyManager {
                     ctx.channel().pipeline().remove(this);
                 }
             });
-            channel.pipeline().addLast("[INPUT] Line splitter", new DelimiterBasedFrameDecoder(MAX_LINE_LENGTH, Unpooled.wrappedBuffer(new byte[]{(byte) '\r', (byte) '\n'})));
-            channel.pipeline().addLast("[INPUT] String decoder", new StringDecoder(StandardCharsets.UTF_8));
-            channel.pipeline().addLast("[INPUT] DCC Receive", new SimpleChannelInboundHandler<String>() {
-                @Override
-                protected void channelRead0(ChannelHandlerContext ctx, String msg) throws Exception {
-                    if (msg == null) {
-                        return;
-                    }
-                    DCCConnection.this.exchange.onMessage(msg);
-                }
-            });
+            addInputDecoder(channel, this.client, DCCConnection.this.exchange::onMessage);
             channel.pipeline().addLast(new ChannelInboundHandlerAdapter() {
                 @Override
                 public void channelInactive(ChannelHandlerContext ctx) throws Exception {
@@ -400,6 +347,42 @@ final class NettyManager {
     private static EventLoopGroup eventLoopGroup;
     private static final Set<ClientConnection> connections = new HashSet<>();
     private static final Map<InternalClient, List<Channel>> dccConnections = new HashMap<>();
+
+    private static void addOutputEncoder(Channel channel, InternalClient client) {
+        // Outbound - Processed in pipeline back to front.
+        channel.pipeline().addFirst("[OUTPUT] Output listener", new MessageToMessageEncoder<String>() {
+
+            @Override
+            protected void encode(ChannelHandlerContext ctx, String msg, List<Object> out) throws Exception {
+                client.getOutputListener().queue(msg);
+                out.add(msg);
+            }
+        });
+        channel.pipeline().addFirst("[OUTPUT] Add line breaks", new MessageToMessageEncoder<String>() {
+
+            @Override
+            protected void encode(ChannelHandlerContext ctx, String msg, List<Object> out) throws Exception {
+                out.add(msg + "\r\n");
+            }
+        });
+        channel.pipeline().addFirst("[OUTPUT] String encoder", new StringEncoder(CharsetUtil.UTF_8));
+    }
+
+    private static void addInputDecoder(Channel channel, InternalClient client, Consumer<String> lineProcessor) {
+        // Inbound
+        channel.pipeline().addLast("[INPUT] Line splitter", new DelimiterBasedFrameDecoder(MAX_LINE_LENGTH, Unpooled.wrappedBuffer(new byte[]{(byte) '\r', (byte) '\n'})));
+        channel.pipeline().addLast("[INPUT] String decoder", new StringDecoder(CharsetUtil.UTF_8));
+        channel.pipeline().addLast("[INPUT] Send to client", new SimpleChannelInboundHandler<String>() {
+            @Override
+            protected void channelRead0(ChannelHandlerContext ctx, String msg) throws Exception {
+                if (msg == null) {
+                    return;
+                }
+                client.getInputListener().queue(msg);
+                lineProcessor.accept(msg);
+            }
+        });
+    }
 
     private NettyManager() {
 
@@ -448,14 +431,13 @@ final class NettyManager {
 
     static Runnable connectDCC(InternalClient client, IRCDCCExchange exchange) {
         Sanity.nullCheck(eventLoopGroup, "A DCC connection cannot be made without a client");
-        ServerBootstrap dccBootstrap = new ServerBootstrap();
-        dccBootstrap.channel(NioServerSocketChannel.class);
-        DCCConnection childHandler = new DCCConnection(exchange, client);
-        dccBootstrap.childHandler(childHandler);
-        dccBootstrap.childOption(ChannelOption.TCP_NODELAY, true);
-        dccBootstrap.childOption(ChannelOption.SO_KEEPALIVE, true);
-        dccBootstrap.group(eventLoopGroup);
-        ChannelFuture future = dccBootstrap.bind(0);
+        ChannelFuture future = new ServerBootstrap()
+                .channel(NioServerSocketChannel.class)
+                .childHandler(new DCCConnection(exchange, client))
+                .childOption(ChannelOption.TCP_NODELAY, true)
+                .childOption(ChannelOption.SO_KEEPALIVE, true)
+                .group(eventLoopGroup)
+                .bind(0);
         future.addListener(ft -> {
             if (ft.isSuccess()) {
                 exchange.setLocalAddress(future.channel().localAddress());
