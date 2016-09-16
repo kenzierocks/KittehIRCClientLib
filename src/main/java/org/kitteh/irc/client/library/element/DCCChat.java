@@ -29,8 +29,8 @@ public interface DCCChat extends DCCExchange {
     /**
      * Sends the user a message over DCC chat.
      *
-     * <p>This method won't return until the chat is connected and the message has
-     * been sent.</p>
+     * <p>This method won't work if the chat is not
+     * {@link #isConnected() connected}.</p>
      *
      * @param message the message to send
      */

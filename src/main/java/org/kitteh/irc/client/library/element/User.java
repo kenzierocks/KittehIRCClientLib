@@ -26,6 +26,7 @@ package org.kitteh.irc.client.library.element;
 import org.kitteh.irc.client.library.Client;
 import org.kitteh.irc.client.library.event.user.DCCConnectedEvent;
 import org.kitteh.irc.client.library.event.user.DCCFailedEvent;
+import org.kitteh.irc.client.library.event.user.DCCSocketBoundEvent;
 import org.kitteh.irc.client.library.feature.CapabilityManager;
 import org.kitteh.irc.client.library.feature.ServerInfo;
 
@@ -104,16 +105,18 @@ public interface User extends MessageReceiver, Staleable {
      */
     boolean isAway();
 
+
     /**
-     * Sends a DCC CHAT request to this user.
+     * Sends a DCC CHAT request to the target.
      *
-     * <p>When the chat is connected, a {@link DCCConnectedEvent} will be fired. If the connection fails,
-     * a {@link DCCFailedEvent} will be fired.</p>
+     * <p>When the server socket is bound locally, a
+     * {@link DCCSocketBoundEvent} will be fired. When the chat is connected,
+     * a {@link DCCConnectedEvent} will be fired. If the connection fails, a
+     * {@link DCCFailedEvent} will be fired.</p>
      *
      * @see Client#requestDCCChat(User)
      */
     default void requestDCCChat() {
         this.getClient().requestDCCChat(this);
     }
-
 }

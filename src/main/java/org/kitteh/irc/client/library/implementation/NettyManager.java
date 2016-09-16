@@ -306,11 +306,9 @@ final class NettyManager {
     }
 
     static class DCCConnection extends ChannelInitializer<SocketChannel> {
-
         private final IRCDCCExchange exchange;
         private final InternalClient client;
-        // Only allow one connection per DCC. Weird, I know.
-        private boolean oneConnection;
+        private int connectionsMade;
 
         private DCCConnection(IRCDCCExchange ex, InternalClient client) {
             this.exchange = ex;
@@ -319,11 +317,12 @@ final class NettyManager {
 
         @Override
         public void initChannel(SocketChannel channel) throws Exception {
-            if (this.oneConnection) {
+            if (this.connectionsMade > 0) {
+                // Only one connection is allowed.
                 channel.close();
                 return;
             }
-            this.oneConnection = true;
+            this.connectionsMade++;
             this.exchange.setNettyChannel(channel);
             dccConnections.computeIfAbsent(this.client, c -> new ArrayList<>()).add(channel);
 
@@ -384,6 +383,11 @@ final class NettyManager {
                 public void channelInactive(ChannelHandlerContext ctx) throws Exception {
                     // kill DCC when inactive
                     ctx.close();
+                    DCCConnection.this.exchange.setLocalAddress(null);
+                    DCCConnection.this.exchange.setRemoteAddress(null);
+                    DCCConnection.this.exchange.setConnected(false);
+                    // Close related ServerSocket
+                    ctx.channel().parent().close();
                     DCCConnection.this.client.getEventManager().callEvent(new DCCConnectionClosedEvent(DCCConnection.this.client, Collections.emptyList(), DCCConnection.this.exchange.snapshot()));
                 }
             });

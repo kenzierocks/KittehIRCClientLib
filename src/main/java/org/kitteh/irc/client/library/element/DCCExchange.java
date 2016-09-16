@@ -31,30 +31,24 @@ import java.util.Optional;
  */
 public interface DCCExchange extends Actor {
     /**
-     * Gets the socket address of the local end.
-     * May return {@link Optional#empty()} if not connected.
-     *
      * @return the socket address of the local end
      */
     Optional<SocketAddress> getLocalSocketAddress();
 
     /**
-     * Gets the socket address of the remote end.
-     * May return {@link Optional#empty()} if not connected.
-     *
      * @return the socket address of the remote end
      */
     Optional<SocketAddress> getRemoteSocketAddress();
 
     /**
-     * Gets the connection status.
-     *
-     * @return {@code true} if the exchange is connected, otherwise false
+     * @return {@code true} if the exchange is connected, otherwise
+     *      {@code false}
      */
     boolean isConnected();
 
     /**
-     * Closes this DCC chat.
+     * Closes this DCC exchange. It will no longer be
+     * {@link #isConnected() connected}.
      */
     void close();
 }

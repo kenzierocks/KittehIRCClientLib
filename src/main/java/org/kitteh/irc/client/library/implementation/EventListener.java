@@ -73,6 +73,7 @@ import org.kitteh.irc.client.library.event.client.RequestedChannelJoinCompleteEv
 import org.kitteh.irc.client.library.event.helper.ClientEvent;
 import org.kitteh.irc.client.library.event.helper.ClientReceiveServerMessageEvent;
 import org.kitteh.irc.client.library.event.helper.MonitoredNickStatusEvent;
+import org.kitteh.irc.client.library.event.user.DCCRequestEvent;
 import org.kitteh.irc.client.library.event.user.MonitoredNickListEvent;
 import org.kitteh.irc.client.library.event.user.MonitoredNickListFullEvent;
 import org.kitteh.irc.client.library.event.user.MonitoredNickOfflineEvent;
@@ -978,11 +979,7 @@ class EventListener {
                             reply = "FINGER om nom nom tasty finger";
                             break;
                         case "DCC":
-                            // Handle targeted DCC chat
-                            // this.fire(new DCCRequestEvent());
-                            // TODO how can the parameters be extracted @mbaxter???
-                            // I only have DCC of the following:
-                            // DCC <CHAT> <chat> <ip> <addr>
+                            handleDccEvent(user, event.getOriginalMessages(), event.getParameters());
                             break;
                     }
                     if (ctcpMessage.startsWith("PING ")) {
@@ -1002,6 +999,27 @@ class EventListener {
                     this.fire(new ChannelTargetedCTCPEvent(this.client, event.getOriginalMessages(), user, channelInfo.getChannel().snapshot(), channelInfo.getPrefix(), ctcpMessage));
                 }
                 break;
+        }
+    }
+
+    private void handleDccEvent(User user, List<ServerMessage> originalMessages, List<String> parameters) {
+        String dccType = CTCPUtil.fromCTCP(parameters.get(2));
+        if (dccType.equals("CHAT")) {
+            String chatType = CTCPUtil.fromCTCP(parameters.get(3));
+            if (!chatType.equals("chat")) {
+                return;
+            }
+            String ip = CTCPUtil.fromCTCP(parameters.get(4));
+            String port = CTCPUtil.fromCTCP(parameters.get(5));
+            int portInt;
+            try {
+               portInt = Integer.parseInt(port);
+            } catch (NumberFormatException invalidPort) {
+                return;
+            }
+            fire(new DCCRequestEvent(this.client, originalMessages, dccType, ip, portInt, user));
+        } else {
+            // do logging
         }
     }
 

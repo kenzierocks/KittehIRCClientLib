@@ -31,6 +31,7 @@ import org.kitteh.irc.client.library.element.mode.UserMode;
 import org.kitteh.irc.client.library.event.client.ClientConnectedEvent;
 import org.kitteh.irc.client.library.event.user.DCCConnectedEvent;
 import org.kitteh.irc.client.library.event.user.DCCFailedEvent;
+import org.kitteh.irc.client.library.event.user.DCCSocketBoundEvent;
 import org.kitteh.irc.client.library.event.user.PrivateCTCPQueryEvent;
 import org.kitteh.irc.client.library.feature.AuthManager;
 import org.kitteh.irc.client.library.feature.CapabilityManager;
@@ -835,8 +836,10 @@ public interface Client {
     /**
      * Sends a DCC CHAT request to the target.
      *
-     * <p>When the chat is connected, a {@link DCCConnectedEvent} will be fired. If the connection fails,
-     * a {@link DCCFailedEvent} will be fired.</p>
+     * <p>When the server socket is bound locally, a
+     * {@link DCCSocketBoundEvent} will be fired. When the chat is connected,
+     * a {@link DCCConnectedEvent} will be fired. If the connection fails, a
+     * {@link DCCFailedEvent} will be fired.</p>
      */
     void requestDCCChat(@Nonnull User target);
 }

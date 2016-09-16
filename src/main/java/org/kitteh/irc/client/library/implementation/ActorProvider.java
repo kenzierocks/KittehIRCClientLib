@@ -813,6 +813,9 @@ class ActorProvider implements Resettable {
         @Override
         public void sendMessage(@Nonnull String message) {
             Sanity.nullCheck(message, "message cannot be null");
+            if (this.nettyChannel == null) {
+                return;
+            }
             this.nettyChannel.writeAndFlush(message.trim());
         }
     }
