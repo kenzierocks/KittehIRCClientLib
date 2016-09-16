@@ -85,9 +85,10 @@ import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
 
 final class NettyManager {
-    private static final int MAX_LINE_LENGTH = 2048;
 
     static final class ClientConnection {
+        private static final int MAX_LINE_LENGTH = 2048;
+
         private final InternalClient client;
         private final Channel channel;
         private final Queue<String> queue = new ConcurrentLinkedQueue<>();
@@ -152,7 +153,7 @@ final class NettyManager {
                 }
             });
 
-            addInputDecoder(this.channel, this.client, this.client::processLine);
+            addInputDecoder(MAX_LINE_LENGTH, this.channel, this.client, this.client::processLine);
 
             // SSL
             if (this.client.getConfig().getNotNull(Config.SSL)) {
@@ -301,20 +302,6 @@ final class NettyManager {
 
             // Inbound & exceptions
             String successHandler = "[INPUT] Success Handler";
-            channel.pipeline().addFirst("[INPUT] Exception Handler", new ChannelInboundHandlerAdapter() {
-                private boolean firstRemove;
-
-                @Override
-                public void exceptionCaught(ChannelHandlerContext ctx, Throwable cause) throws Exception {
-                    if (!this.firstRemove) {
-                        ctx.channel().pipeline().remove(successHandler);
-                        ctx.channel().close();
-                        this.firstRemove = true;
-                    }
-                    cause.printStackTrace();
-                    DCCConnection.this.client.getEventManager().callEvent(new DCCFailedEvent(DCCConnection.this.client, "Netty exception", cause));
-                }
-            });
             channel.pipeline().addFirst(successHandler, new ChannelInboundHandlerAdapter() {
                 @Override
                 public void channelActive(ChannelHandlerContext ctx) throws Exception {
@@ -324,7 +311,7 @@ final class NettyManager {
                     ctx.channel().pipeline().remove(this);
                 }
             });
-            addInputDecoder(channel, this.client, DCCConnection.this.exchange::onMessage);
+            addInputDecoder(Integer.MAX_VALUE, channel, this.client, DCCConnection.this.exchange::onMessage);
             channel.pipeline().addLast(new ChannelInboundHandlerAdapter() {
                 @Override
                 public void channelInactive(ChannelHandlerContext ctx) throws Exception {
@@ -336,6 +323,33 @@ final class NettyManager {
                     // Close related ServerSocket
                     ctx.channel().parent().close();
                     DCCConnection.this.client.getEventManager().callEvent(new DCCConnectionClosedEvent(DCCConnection.this.client, Collections.emptyList(), DCCConnection.this.exchange.snapshot()));
+                }
+            });
+            channel.pipeline().addFirst("[INPUT] Exception Handler", new ChannelInboundHandlerAdapter() {
+                private boolean firstRemove;
+
+                @Override
+                public void exceptionCaught(ChannelHandlerContext ctx, Throwable cause) throws Exception {
+                    if (!this.firstRemove) {
+                        ctx.channel().pipeline().remove(successHandler);
+                        ctx.channel().close().addListener(ft -> {
+                            if (ft.isDone()) {
+                                DCCConnection.this.client.getEventManager().callEvent(new DCCFailedEvent(DCCConnection.this.client, "Netty exception", cause));
+                            }
+                        });
+                        this.firstRemove = true;
+                    }
+                    if (cause instanceof Exception) {
+                        client.getExceptionListener().queue((Exception) cause);
+                    }
+                }
+            });
+            channel.pipeline().addLast("[OUTPUT] Exception Handler", new ChannelInboundHandlerAdapter() {
+                @Override
+                public void exceptionCaught(ChannelHandlerContext ctx, Throwable cause) throws Exception {
+                    if (cause instanceof Exception) {
+                        client.getExceptionListener().queue((Exception) cause);
+                    }
                 }
             });
         }
@@ -368,9 +382,9 @@ final class NettyManager {
         channel.pipeline().addFirst("[OUTPUT] String encoder", new StringEncoder(CharsetUtil.UTF_8));
     }
 
-    private static void addInputDecoder(Channel channel, InternalClient client, Consumer<String> lineProcessor) {
+    private static void addInputDecoder(int maxLineLength, Channel channel, InternalClient client, Consumer<String> lineProcessor) {
         // Inbound
-        channel.pipeline().addLast("[INPUT] Line splitter", new DelimiterBasedFrameDecoder(MAX_LINE_LENGTH, Unpooled.wrappedBuffer(new byte[]{(byte) '\r', (byte) '\n'})));
+        channel.pipeline().addLast("[INPUT] Line splitter", new DelimiterBasedFrameDecoder(maxLineLength, Unpooled.wrappedBuffer(new byte[]{(byte) '\r', (byte) '\n'})));
         channel.pipeline().addLast("[INPUT] String decoder", new StringDecoder(CharsetUtil.UTF_8));
         channel.pipeline().addLast("[INPUT] Send to client", new SimpleChannelInboundHandler<String>() {
             @Override
