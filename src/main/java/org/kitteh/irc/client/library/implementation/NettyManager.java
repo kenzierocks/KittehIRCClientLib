@@ -295,7 +295,7 @@ final class NettyManager {
             }
             this.connectionsMade++;
             this.exchange.setNettyChannel(channel);
-            dccConnections.computeIfAbsent(this.client, c -> new ArrayList<>()).add(channel);
+            NettyManager.dccConnections.computeIfAbsent(this.client, c -> new ArrayList<>()).add(channel);
 
             addOutputEncoder(channel, this.client);
 
